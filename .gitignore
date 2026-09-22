@@ -1,0 +1,12 @@
+node_modules/
+.env
+auth/*
+!auth/.gitkeep
+*.session
+*.log
+data/*.tmp
+data/*.bak
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

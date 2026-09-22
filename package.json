@@ -1,0 +1,31 @@
+{
+  "name": "muller-xmd",
+  "version": "1.0.0",
+  "description": "A modular, secure WhatsApp multi-device bot powered by Baileys v7.0.0-rc14",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "muller-xmd",
+    "multi-device"
+  ],
+  "author": "Muller",
+  "license": "MIT",
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "dotenv": "^16.4.7",
+    "libphonenumber-js": "^1.11.17",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
