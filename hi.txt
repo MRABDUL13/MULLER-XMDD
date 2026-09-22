@@ -1,0 +1,743 @@
+Build a production-ready WhatsApp bot using Node.js and Baileys v7.0.0-rc.14.
+
+The bot should be modular, secure, easy to maintain, and suitable for deployment on a VPS, cPanel Node.js hosting, or similar Node.js hosting.
+
+1. Core Requirements
+
+Use:
+
+- Node.js 20+
+- "@whiskeysockets/baileys@7.0.0-rc.14"
+- ES Modules or CommonJS consistently throughout the project
+- "pino" for logging
+- "dotenv" for environment configuration
+- "qrcode-terminal" for local QR login
+- "libphonenumber-js" or another reliable method for JID/phone normalization where needed
+
+Do NOT use deprecated Baileys APIs.
+
+Use the current Baileys v7 APIs and event structure.
+
+The project must have:
+
+- Automatic authentication/session handling
+- Automatic reconnection
+- Connection state monitoring
+- Graceful shutdown
+- Error handling
+- Anti-crash protection
+- Command cooldown/rate limiting
+- Permission checking
+- Group metadata caching where appropriate
+- Clean logging
+- Environment variables for secrets/configuration
+
+2. Recommended Project Structure
+
+Create the complete project with a structure similar to:
+
+whatsapp-bot/
+├── index.js
+├── package.json
+├── .env.example
+├── .gitignore
+├── README.md
+│
+├── auth/
+│   └── .gitkeep
+│
+├── config/
+│   ├── config.js
+│   └── settings.js
+│
+├── lib/
+│   ├── connection.js
+│   ├── handler.js
+│   ├── commands.js
+│   ├── permissions.js
+│   ├── database.js
+│   ├── logger.js
+│   ├── utils.js
+│   └── groupCache.js
+│
+├── commands/
+│   ├── general/
+│   │   ├── ping.js
+│   │   ├── alive.js
+│   │   ├── menu.js
+│   │   ├── owner.js
+│   │   ├── botinfo.js
+│   │   └── uptime.js
+│   │
+│   ├── group/
+│   │   ├── groupinfo.js
+│   │   ├── tagall.js
+│   │   ├── hidetag.js
+│   │   ├── promote.js
+│   │   ├── demote.js
+│   │   ├── add.js
+│   │   ├── remove.js
+│   │   ├── mute.js
+│   │   └── unmute.js
+│   │
+│   ├── admin/
+│   │   ├── antilink.js
+│   │   ├── welcome.js
+│   │   ├── goodbye.js
+│   │   ├── delete.js
+│   │   ├── kick.js
+│   │   └── settings.js
+│   │
+│   └── owner/
+│       ├── eval.js
+│       ├── restart.js
+│       ├── shutdown.js
+│       └── broadcast.js
+│
+├── events/
+│   ├── messages.js
+│   ├── groupParticipants.js
+│   └── connection.js
+│
+└── data/
+    ├── settings.json
+    └── groups.json
+
+The structure can be improved if necessary, but keep the architecture modular.
+
+3. Configuration
+
+Create a ".env.example" containing:
+
+BOT_NAME=MULLER-XMD
+OWNER_NUMBER=234XXXXXXXXXX
+OWNER_NAME=Muller
+PREFIX=.
+SESSION_DIR=./auth
+BOT_MODE=public
+LOG_LEVEL=info
+
+Never hard-code:
+
+- Owner number
+- API keys
+- Passwords
+- Tokens
+- Session credentials
+- Private configuration
+
+Add ".env" and authentication/session directories to ".gitignore".
+
+4. Secure Connection System
+
+Create a dedicated connection module.
+
+The connection system must:
+
+- Use Baileys v7.0.0-rc.14 correctly
+- Load credentials using the appropriate auth-state system
+- Automatically reconnect after temporary connection failures
+- Detect logged-out sessions
+- Avoid infinite reconnect loops
+- Handle "connection.update"
+- Handle "creds.update"
+- Persist credentials safely
+- Print QR code when authentication is required
+- Support pairing-code login if appropriate
+- Gracefully close the socket
+- Handle SIGINT/SIGTERM
+- Prevent multiple WhatsApp socket instances from being created accidentally
+
+Implement exponential backoff for reconnect attempts.
+
+Do not blindly reconnect when the session has been permanently logged out.
+
+5. Message Handler
+
+Create a central "handler.js".
+
+It must:
+
+1. Receive incoming messages.
+2. Ignore invalid messages.
+3. Ignore bot messages where appropriate.
+4. Extract:
+   - sender
+   - chat ID
+   - message type
+   - text
+   - command
+   - arguments
+   - quoted message
+5. Detect whether the chat is a group.
+6. Retrieve group metadata when required.
+7. Determine:
+   - bot admin status
+   - sender admin status
+   - sender owner status
+8. Apply command permissions.
+9. Apply cooldown/rate limits.
+10. Dynamically load commands.
+11. Execute the correct command.
+12. Catch command errors without crashing the bot.
+
+Support commands such as:
+
+.ping
+.alive
+.menu
+.owner
+.botinfo
+.uptime
+.groupinfo
+
+The prefix must be configurable.
+
+6. General Commands
+
+Implement these commands:
+
+".ping"
+
+Return a response such as:
+
+🏓 Pong!
+
+Speed: XX ms
+Uptime: XX
+
+Calculate actual response latency.
+
+".alive"
+
+Show:
+
+- Bot name
+- Version
+- Uptime
+- Node.js version
+- Platform
+- Memory usage
+
+".menu"
+
+Create a clean categorized command menu:
+
+╭━━━〔 MULLER-XMD 〕━━━╮
+┃
+┃ 👑 OWNER
+┃ • .eval
+┃ • .restart
+┃ • .shutdown
+┃
+┃ ⚙️ GENERAL
+┃ • .ping
+┃ • .alive
+┃ • .menu
+┃ • .owner
+┃ • .botinfo
+┃
+┃ 👥 GROUP
+┃ • .groupinfo
+┃ • .tagall
+┃ • .hidetag
+┃ • .promote
+┃ • .demote
+┃ • .kick
+┃
+┃ 🛡️ ADMIN
+┃ • .antilink
+┃ • .welcome
+┃ • .goodbye
+┃ • .delete
+┃ • .mute
+┃ • .unmute
+┃
+╰━━━━━━━━━━━━━━━━━━╯
+
+Make the menu generated from the actual loaded command registry instead of manually maintaining a duplicate list.
+
+".owner"
+
+Display configured owner information.
+
+".botinfo"
+
+Display bot information and runtime statistics.
+
+".uptime"
+
+Display formatted uptime.
+
+7. Group Commands
+
+Implement:
+
+".groupinfo"
+
+Display:
+
+- Group name
+- Group ID
+- Description
+- Member count
+- Admin count
+- Creation information if available
+- Owner/creator where available
+
+".tagall"
+
+Mention all group participants.
+
+Example:
+
+📢 TAG ALL
+
+@user1
+@user2
+@user3
+
+Do not expose private phone numbers unnecessarily.
+
+Only allow group admins to use this command.
+
+".hidetag"
+
+Mention all members without displaying their mentions visibly where supported.
+
+Admin-only.
+
+".promote @user"
+
+Promote a member.
+
+Require:
+
+- Group
+- Sender admin
+- Bot admin
+
+".demote @user"
+
+Demote a member.
+
+Require:
+
+- Group
+- Sender admin
+- Bot admin
+
+".kick @user"
+
+Remove member.
+
+Require:
+
+- Group
+- Sender admin
+- Bot admin
+
+".add 234XXXXXXXXXX"
+
+Add a participant where supported by Baileys and WhatsApp.
+
+Handle failures gracefully.
+
+8. Admin Protection
+
+Implement permission helpers:
+
+isOwner()
+isAdmin()
+isBotAdmin()
+isGroup()
+isPrivate()
+
+Create a reusable permission middleware rather than duplicating permission checks inside every command.
+
+Example:
+
+Owner only
+Admin only
+Bot admin required
+Group only
+Everyone
+
+Commands must fail safely with a useful message when permissions are insufficient.
+
+9. Anti-Link System
+
+Implement:
+
+.antilink on
+.antilink off
+.antilink warn
+.antilink kick
+
+Allow configuration per group.
+
+Detect common links such as:
+
+- WhatsApp group links
+- Telegram links
+- Discord links
+- Facebook links
+- Instagram links
+- TikTok links
+- YouTube links
+- Generic URLs
+
+Do not block trusted domains if a whitelist is configured.
+
+When a prohibited link is detected:
+
+1. Delete the message if the bot has permission.
+2. Warn the sender.
+3. Track warnings.
+4. Optionally kick the user after a configurable number of warnings.
+
+Never allow the bot to kick administrators unless explicitly configured.
+
+Protect against false positives.
+
+10. Welcome System
+
+Implement:
+
+.welcome on
+.welcome off
+.welcome message
+
+When a member joins, send a customizable message.
+
+Support placeholders:
+
+{user}
+{name}
+{group}
+{count}
+
+Example:
+
+🎉 Welcome {user} to {group}!
+
+You are member #{count}.
+
+Please read the group rules and enjoy your stay.
+
+11. Goodbye System
+
+Implement:
+
+.goodbye on
+.goodbye off
+.goodbye message
+
+Support:
+
+{user}
+{name}
+{group}
+{count}
+
+Example:
+
+👋 Goodbye {user}!
+
+Thanks for being part of {group}.
+
+12. Delete Command
+
+Implement:
+
+.delete
+
+The command should work by replying to a message.
+
+Requirements:
+
+- Group only where appropriate
+- Sender must have permission
+- Bot must be admin where required
+- Delete the quoted message
+- Delete the command message if possible
+
+Handle messages that cannot be deleted gracefully.
+
+13. Owner Commands
+
+Implement:
+
+.eval
+.restart
+.shutdown
+.broadcast
+
+IMPORTANT:
+
+".eval" must be owner-only.
+
+Never expose eval to normal users.
+
+Add safeguards around arbitrary code execution.
+
+Do not log sensitive command output.
+
+".restart" should restart the process safely.
+
+".shutdown" should terminate gracefully.
+
+".broadcast" should have validation and rate limiting.
+
+14. Database / Settings
+
+Create a simple storage layer that can start with JSON but can later be replaced with SQLite/MySQL.
+
+Store per-group settings such as:
+
+{
+  "antilink": {
+    "enabled": false,
+    "action": "warn",
+    "warnings": 3
+  },
+  "welcome": {
+    "enabled": false,
+    "message": "Welcome {user} to {group}"
+  },
+  "goodbye": {
+    "enabled": false,
+    "message": "Goodbye {user}"
+  }
+}
+
+Create reusable functions:
+
+getGroupSettings()
+updateGroupSettings()
+setGroupSetting()
+
+Prevent race conditions when writing JSON.
+
+15. Command Registry
+
+Commands should be dynamically discovered from the "commands/" directory.
+
+Every command should expose metadata similar to:
+
+module.exports = {
+    name: "ping",
+    aliases: ["p"],
+    category: "general",
+    description: "Check bot response speed",
+    usage: ".ping",
+    permission: "public",
+
+    async execute({ sock, message, args, config, helpers }) {
+        // command logic
+    }
+};
+
+The handler should automatically register commands.
+
+Support aliases.
+
+Example:
+
+.ping
+.p
+
+16. Error Handling
+
+The bot must never crash because of a bad user command.
+
+Wrap command execution in proper error handling.
+
+Log errors using structured logging.
+
+Send users a generic error:
+
+❌ Something went wrong while processing that command.
+
+Do not expose:
+
+- Stack traces
+- API keys
+- File paths
+- Environment variables
+- Database credentials
+- Authentication data
+
+17. Security
+
+Implement strong security practices.
+
+Requirements:
+
+- Validate all command input.
+- Sanitize user-controlled data where necessary.
+- Never trust message content.
+- Never expose authentication credentials.
+- Never commit ".env".
+- Never commit "auth/".
+- Rate-limit expensive commands.
+- Prevent command spam.
+- Restrict owner commands.
+- Restrict group administration commands.
+- Prevent unauthorized group setting changes.
+- Avoid arbitrary shell execution.
+- Avoid unsafe dynamic evaluation.
+- Handle malformed WhatsApp messages.
+- Handle unexpected API responses.
+- Do not store unnecessary personal information.
+
+Create a ".gitignore":
+
+node_modules/
+.env
+auth/
+*.session
+*.log
+data/*.tmp
+
+18. Connection Error Handling
+
+Correctly handle Baileys disconnect reasons.
+
+Differentiate between:
+
+- Temporary network failure
+- Logged out
+- Restart required
+- Connection closed
+- Bad session
+- Server-side disconnect
+
+Do not endlessly reconnect after a permanent logout.
+
+Display clear logs such as:
+
+[INFO] Starting WhatsApp connection...
+[INFO] QR code generated.
+[INFO] WhatsApp connected.
+[WARN] Connection closed. Reconnecting...
+[ERROR] Session logged out. Delete auth session and authenticate again.
+
+19. Graceful Shutdown
+
+Handle:
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+
+Close:
+
+- WhatsApp socket
+- Database connections
+- File handles
+- Other resources
+
+before exiting.
+
+20. Package.json
+
+Generate a complete "package.json" with all required dependencies and scripts:
+
+{
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  }
+}
+
+Use the exact requested Baileys version:
+
+@whiskeysockets/baileys@7.0.0-rc.14
+
+Do not silently substitute another Baileys version.
+
+21. README
+
+Create a complete README containing:
+
+1. Project description
+2. Features
+3. Requirements
+4. Installation
+5. Configuration
+6. Authentication
+7. Running locally
+8. VPS deployment
+9. cPanel Node.js deployment
+10. Command list
+11. Permission system
+12. Troubleshooting
+13. Security notes
+14. Updating dependencies
+
+Include commands such as:
+
+npm install
+npm start
+
+22. Code Quality
+
+The final project must:
+
+- Use clean modular JavaScript.
+- Avoid duplicated code.
+- Use async/await consistently.
+- Use meaningful variable names.
+- Include comments only where useful.
+- Avoid placeholder functions.
+- Avoid pseudo-code.
+- Avoid deprecated APIs.
+- Ensure every imported module exists.
+- Ensure every command actually works.
+- Ensure all file paths are correct.
+- Ensure "package.json" dependencies match the code.
+
+23. Final Deliverable
+
+Generate the complete working source code for every file.
+
+Do not give me only examples or snippets.
+
+For every file, show:
+
+FILE: index.js
+
+followed by its complete code.
+
+Then:
+
+FILE: lib/connection.js
+
+followed by its complete code.
+
+Continue until every required file is provided.
+
+Before finishing, verify that:
+
+- All imports resolve.
+- All commands are registered.
+- The handler is connected to the WhatsApp socket.
+- Connection events are handled.
+- Credentials are saved.
+- Reconnection works.
+- Group admin detection works.
+- Owner detection works.
+- Anti-link works.
+- Welcome/goodbye works.
+- Delete works.
+- Menu reflects registered commands.
+- The bot can start with "npm start".
+- No secret credentials are hard-coded.
+
+The bot should use the branding:
+
+MULLER-XMD
+
+Description:
+
+A modular, secure WhatsApp multi-device bot powered by Baileys v7.0.0-rc.14.
