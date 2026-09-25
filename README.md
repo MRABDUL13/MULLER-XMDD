@@ -63,17 +63,35 @@ Notes:
 
 - `OWNER_NUMBER` must be digits only, country code included, no plus sign.
 - `BOT_MODE=private` restricts commands to the owner.
-- `PAIRING_NUMBER` enables pairing-code login instead of (or in addition to) QR.
+- `AUTH_METHOD=pairing` (default) logs in with a phone number and pairing code. Use `AUTH_METHOD=qr` for QR login.
+- `PAIRING_NUMBER` is the WhatsApp number used for pairing-code login.
 - `WHITELIST_DOMAINS` is a comma-separated list of domains that anti-link will ignore.
 - Never commit `.env` or the `auth/` session folder.
 
 ## Authentication
 
-1. Start the bot with `npm start`.
-2. If no session exists, a QR code is printed in the terminal.
-3. Open WhatsApp on your phone: Linked Devices -> Link a Device, then scan the QR.
-4. If `PAIRING_NUMBER` is set, a pairing code is also printed. Enter it under Linked Devices.
-5. Credentials are stored in `SESSION_DIR` (default `./auth`). Keep this folder private.
+Pairing-code login is the default. You enter a phone number instead of scanning a QR code.
+
+1. Set `PAIRING_NUMBER` in `.env` to your WhatsApp number with country code and no plus sign, for example `2348012345678`.
+2. Keep `AUTH_METHOD=pairing` (this is the default).
+3. Start the bot with `npm start`.
+4. Copy the pairing code from the console.
+5. On your phone open WhatsApp -> Linked Devices -> Link a Device -> Link with phone number, then enter the code.
+6. Credentials are stored in `SESSION_DIR` (default `./auth`). Keep this folder private.
+
+If `PAIRING_NUMBER` is empty, the bot uses `OWNER_NUMBER`. If both are empty and you are in a real terminal, it asks:
+
+```text
+Enter WhatsApp number with country code (example 2348012345678):
+```
+
+On KataBump / cPanel there is no interactive prompt, so you must set `PAIRING_NUMBER` in `.env`.
+
+To use QR login instead:
+
+```bash
+AUTH_METHOD=qr
+```
 
 If the session is logged out, delete the `auth/` folder and authenticate again.
 

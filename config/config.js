@@ -27,6 +27,7 @@ const config = {
   botMode: (process.env.BOT_MODE || "public").toLowerCase(),
   logLevel: process.env.LOG_LEVEL || "info",
   pairingNumber: normalizeOwnerNumber(process.env.PAIRING_NUMBER),
+  authMethod: (process.env.AUTH_METHOD || "pairing").toLowerCase(),
   whitelistDomains: parseList(process.env.WHITELIST_DOMAINS),
   antiCrash: String(process.env.ANTI_CRASH || "true").toLowerCase() !== "false",
   commandCooldownMs: Number(process.env.COMMAND_COOLDOWN_MS || 1500),
